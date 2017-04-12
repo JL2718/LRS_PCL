@@ -1,9 +1,15 @@
 #include <pcl/common/common_headers.h>
 #include <pcl/visualization/pcl_visualizer.h>
+#include <pcl/io/pcd_io.h>
+#include <pcl/point_types.h>
+#include <pcl/registration/icp.h>
+
 #include <librealsense/rs.hpp>
 
 #include <iostream>
 #include <chrono>
+
+#include <boost/range/combine.hpp>
 
 //===================================================================
 // Global data
@@ -70,23 +76,28 @@ int main( int argc, char** argv ) try
 
 
     // ==== Cloud Setup ====
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr              rsCloudPtr( new pcl::PointCloud<pcl::PointXYZRGB> );
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr              rsMultiCloudPtr( new pcl::PointCloud<pcl::PointXYZRGB> );
     std::shared_ptr<pcl::visualization::PCLVisualizer>  pclVisualizer;
 
 
     // Create the PCL viewer/window
-    pclVisualizer = createPointCloudViewer( rsCloudPtr );
-
-
-    //rs::log_to_console( rs::log_severity::warn );
+    pclVisualizer = createPointCloudViewer( rsMultiCloudPtr );
 
     // Create the RS context and display info about it
     rs::context rsContext;
     printRSContextInfo( &rsContext );
+    //rs::log_to_console( rs::log_severity::warn );
 
-    // Create the RS camera and configure streaming and start the streams
-    rs::device * rsCamera = rsContext.get_device( 0 );
-    configureRSStreams( rsCamera );
+    std::vector<rs::device *> cameras;
+    std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> clouds;
+    for(int i=0; i<rsContext.get_device_count(); ++i){
+        // Create the RS camera and configure streaming and start the streams
+        rs::device * rsCamera = rsContext.get_device( i );
+        configureRSStreams( rsCamera );
+        cameras.push_back(rsCamera);
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr rsCloudPtr( new pcl::PointCloud<pcl::PointXYZRGB> );
+        clouds.push_back(rsCloudPtr);
+        }
 
 
     while( !pclVisualizer->wasStopped( ) )
@@ -103,16 +114,22 @@ int main( int argc, char** argv ) try
             return err;
         }
 
+        pclVisualizer->removeAllPointClouds();
         // ==== Data Grab ====
-        err = generatePointCloud( rsCamera, rsCloudPtr );
-        if( err != EXIT_SUCCESS )
-        {
-            std::cout << "Error in getFrame( )\n" << std::endl;
-            return err;
-        }
+        for(auto cc:boost::range::combine(cameras,clouds)){
+            rs::device * rsCamera;
+            pcl::PointCloud<pcl::PointXYZRGB>::Ptr rsCloudPtr;
+            boost::tie(rsCamera,rsCloudPtr) = cc;
+            err = generatePointCloud( rsCamera, rsCloudPtr );
+            if( err != EXIT_SUCCESS ){
+                std::cout << "Error in getFrame( )\n" << std::endl;
+                return err;
+                }
+            // ==== Update Viewer Cloud State and display it ====
+            pclVisualizer->addPointCloud( rsCloudPtr, "Realsense" );
+            }
 
-        // ==== Update Viewer Cloud State and display it ====
-        pclVisualizer->updatePointCloud( rsCloudPtr, "sample cloud" );
+        // ==== Display cloud ====
         pclVisualizer->spinOnce( 1 );
 
 
