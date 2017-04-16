@@ -113,8 +113,8 @@ int main( int argc, char** argv ) try
             return err;
         }
 
-        pclVisualizer->removeAllPointClouds();
         // ==== Data Grab ====
+        rsMultiCloudPtr->clear();
         for(auto cc:boost::range::combine(cameras,clouds)){
             rs::device * rsCamera;
             pcl::PointCloud<pcl::PointXYZRGB>::Ptr rsCloudPtr;
@@ -124,17 +124,13 @@ int main( int argc, char** argv ) try
                 std::cout << "Error in getFrame( )\n" << std::endl;
                 return err;
                 }
-            // ==== Update Viewer Cloud State and display it ====
-            std::string name = std::string(rsCamera->get_name()) + rsCamera->get_serial();
-            pclVisualizer->addPointCloud( rsCloudPtr, name );
-            //pclVisualizer->updatePointCloud( rsCloudPtr, "sample cloud" );
+            *rsMultiCloudPtr += *rsCloudPtr;
+            boost::this_thread::sleep( boost::posix_time::microseconds( BOOST_WAIT_TIME ) );
             }
 
         // ==== Display cloud ====
+        pclVisualizer->updatePointCloud( rsMultiCloudPtr, "sample cloud" );
         pclVisualizer->spinOnce( 1 );
-
-
-        //boost::this_thread::sleep( boost::posix_time::microseconds( BOOST_WAIT_TIME ) );
     }
     for(auto rsCamera:cameras){
         rsCamera->stop();
