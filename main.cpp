@@ -77,10 +77,11 @@ int main( int argc, char** argv ) try
 
 
     // ==== Cloud Setup ====
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr              rsMultiCloudPtr( new pcl::PointCloud<pcl::PointXYZRGB> );
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr rsMultiCloudPtr( new pcl::PointCloud<pcl::PointXYZRGB> );
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr rsCloudPtr( new pcl::PointCloud<pcl::PointXYZRGB> );
     std::shared_ptr<pcl::visualization::PCLVisualizer>  pclVisualizer;
     // Create the PCL viewer/window
-    pclVisualizer = createPointCloudViewer( rsMultiCloudPtr );
+    pclVisualizer = createPointCloudViewer( rsCloudPtr );
 
     // Create the RS context and display info about it
     rs::context rsContext;
@@ -88,14 +89,14 @@ int main( int argc, char** argv ) try
     //rs::log_to_console( rs::log_severity::warn );
 
     std::vector<rs::device *> cameras;
-    std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> clouds;
+    //std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> clouds;
     for(int i=0; i<rsContext.get_device_count(); ++i){
         // Create the RS camera and configure streaming and start the streams
         rs::device * rsCamera = rsContext.get_device( i );
         configureRSStreams( rsCamera );
         cameras.push_back(rsCamera);
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr rsCloudPtr( new pcl::PointCloud<pcl::PointXYZRGB> );
-        clouds.push_back(rsCloudPtr);
+        //pcl::PointCloud<pcl::PointXYZRGB>::Ptr rsCloudPtr( new pcl::PointCloud<pcl::PointXYZRGB> );
+        //clouds.push_back(rsCloudPtr);
         }
 
 
@@ -115,21 +116,18 @@ int main( int argc, char** argv ) try
 
         // ==== Data Grab ====
         rsMultiCloudPtr->clear();
-        for(auto cc:boost::range::combine(cameras,clouds)){
-            rs::device * rsCamera;
-            pcl::PointCloud<pcl::PointXYZRGB>::Ptr rsCloudPtr;
-            boost::tie(rsCamera,rsCloudPtr) = cc;
+        for(auto rsCamera:cameras){
             err = generatePointCloud( rsCamera, rsCloudPtr );
             if( err != EXIT_SUCCESS ){
                 std::cout << "Error in getFrame( )\n" << std::endl;
                 return err;
                 }
-            *rsMultiCloudPtr += *rsCloudPtr;
-            boost::this_thread::sleep( boost::posix_time::microseconds( BOOST_WAIT_TIME ) );
+            //*rsMultiCloudPtr = *rsCloudPtr;
+            //boost::this_thread::sleep( boost::posix_time::microseconds( BOOST_WAIT_TIME ) );
             }
 
         // ==== Display cloud ====
-        pclVisualizer->updatePointCloud( rsMultiCloudPtr, "sample cloud" );
+        pclVisualizer->updatePointCloud( rsCloudPtr, "sample cloud" );
         pclVisualizer->spinOnce( 1 );
     }
     for(auto rsCamera:cameras){
@@ -160,7 +158,7 @@ std::shared_ptr<pcl::visualization::PCLVisualizer> createPointCloudViewer( pcl::
     // Open 3D viewer and add point cloud
     std::shared_ptr<pcl::visualization::PCLVisualizer> viewer( new pcl::visualization::PCLVisualizer( "LibRealSense PCL Viewer" ) );
 
-    viewer->setBackgroundColor(0,0,0); // ( 0.251, 0.251, 0.251 ); // Floral white 1, 0.98, 0.94 | Misty Rose 1, 0.912, 0.9 |
+    viewer->setBackgroundColor( 0.251, 0.251, 0.251 ); // Floral white 1, 0.98, 0.94 | Misty Rose 1, 0.912, 0.9 |
     viewer->addPointCloud<pcl::PointXYZRGB>( cloud, "sample cloud" );
     viewer->setPointCloudRenderingProperties( pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "sample cloud" );
     viewer->addCoordinateSystem( 1.0 );
