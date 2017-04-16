@@ -2,12 +2,13 @@
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
-#include <pcl/registration/icp.h>
+//#include <pcl/registration/icp.h>
 
 #include <librealsense/rs.hpp>
 
 #include <iostream>
 #include <chrono>
+#include <string>
 
 #include <boost/range/combine.hpp>
 
@@ -78,8 +79,6 @@ int main( int argc, char** argv ) try
     // ==== Cloud Setup ====
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr              rsMultiCloudPtr( new pcl::PointCloud<pcl::PointXYZRGB> );
     std::shared_ptr<pcl::visualization::PCLVisualizer>  pclVisualizer;
-
-
     // Create the PCL viewer/window
     pclVisualizer = createPointCloudViewer( rsMultiCloudPtr );
 
@@ -126,7 +125,9 @@ int main( int argc, char** argv ) try
                 return err;
                 }
             // ==== Update Viewer Cloud State and display it ====
-            pclVisualizer->addPointCloud( rsCloudPtr, "Realsense" );
+            std::string name = std::string(rsCamera->get_name()) + rsCamera->get_serial();
+            pclVisualizer->addPointCloud( rsCloudPtr, name );
+            //pclVisualizer->updatePointCloud( rsCloudPtr, "sample cloud" );
             }
 
         // ==== Display cloud ====
@@ -135,8 +136,11 @@ int main( int argc, char** argv ) try
 
         //boost::this_thread::sleep( boost::posix_time::microseconds( BOOST_WAIT_TIME ) );
     }
-
+    for(auto rsCamera:cameras){
+        rsCamera->stop();
+    }
     pclVisualizer->close( );
+
     return EXIT_SUCCESS;
 }
 catch( const rs::error & e )
@@ -160,7 +164,7 @@ std::shared_ptr<pcl::visualization::PCLVisualizer> createPointCloudViewer( pcl::
     // Open 3D viewer and add point cloud
     std::shared_ptr<pcl::visualization::PCLVisualizer> viewer( new pcl::visualization::PCLVisualizer( "LibRealSense PCL Viewer" ) );
 
-    viewer->setBackgroundColor( 0.251, 0.251, 0.251 ); // Floral white 1, 0.98, 0.94 | Misty Rose 1, 0.912, 0.9 |
+    viewer->setBackgroundColor(0,0,0); // ( 0.251, 0.251, 0.251 ); // Floral white 1, 0.98, 0.94 | Misty Rose 1, 0.912, 0.9 |
     viewer->addPointCloud<pcl::PointXYZRGB>( cloud, "sample cloud" );
     viewer->setPointCloudRenderingProperties( pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "sample cloud" );
     viewer->addCoordinateSystem( 1.0 );
@@ -257,8 +261,9 @@ int generatePointCloud( rs::device *dev, pcl::PointCloud<pcl::PointXYZRGB>::Ptr 
 {
 
     // Wait for new frame data
-    if( dev->is_streaming( ) )
-        dev->wait_for_frames();
+    dev->poll_for_frames();
+    //if( dev->is_streaming( ) )
+    //    dev->wait_for_frames();
 
     // Retrieve our images
     const uint16_t * depth_image    = ( const uint16_t * )dev->get_frame_data( rs::stream::depth );
@@ -315,7 +320,7 @@ int generatePointCloud( rs::device *dev, pcl::PointCloud<pcl::PointXYZRGB>::Ptr 
             bool depth_fail = true;
             bool color_fail = true;
 
-            depth_fail = ( depth_point.z > NOISY );
+            //depth_fail = ( depth_point.z > NOISY );
             color_fail = ( cx < 0 || cy < 0 || cx > color_intrin.width || cy > color_intrin.height );
 
             // ==== Cloud Input Pointers ====
